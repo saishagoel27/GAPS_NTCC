@@ -83,7 +83,7 @@ graduate-admission/
 ├── notebooks/         # Jupyter notebook for training
 ├── run_all.sh         # Script to run both frontend + backend
 ├── requirements.txt
-└── .streamlit/secrets.toml
+└── secrets.toml
 ```
 
 ---
