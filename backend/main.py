@@ -1,13 +1,13 @@
 from fastapi import FastAPI, Query, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Union
 import pandas as pd
 import numpy as np
 import joblib
 from pathlib import Path
 import os
+import shap
 
-from backend.utils import score_sop_with_gemini
+from backend.utils import score_sop
 
 app = FastAPI()
 
@@ -15,7 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent
 model = joblib.load(BASE_DIR / "models" / "admission_model.pkl")
 scaler = joblib.load(BASE_DIR / "models" / "scaler.pkl")
 
-class AdmissionInput(BaseModel):
+class StudentProfile(BaseModel):
     gre_score: float
     toefl_score: float
     university_rating: int
@@ -24,143 +24,104 @@ class AdmissionInput(BaseModel):
     cgpa: float
     research: int
 
-class SOPRequest(BaseModel):
+class SOPText(BaseModel):
     sop: str
 
-@app.post("/predict_admission")
-def predict_admission(input: AdmissionInput) -> Union[Dict[str, float], Dict[str, str]]:
-    data = np.array([[
-        input.gre_score,
-        input.toefl_score,
-        input.university_rating,
-        input.sop,
-        input.lor,
-        input.cgpa,
-        input.research
+@app.post("/predict")
+def predict_admission(profile: StudentProfile):
+    features = np.array([[
+        profile.gre_score, profile.toefl_score, profile.university_rating,
+        profile.sop, profile.lor, profile.cgpa, profile.research
     ]])
+    
+    scaled_features = scaler.transform(features)
+    prob = model.predict(scaled_features)[0] * 100
+    
+    return {"probability": max(0, round(prob, 2))}
 
-    scaled_data = scaler.transform(data)
-    prediction = model.predict(scaled_data)[0]
-    admission_prob = prediction * 100
-
-    if admission_prob < 0:
-        return {"message": "Admission unlikely: predicted score is negative."}
-    else:
-        return {"admission_probability": round(float(admission_prob), 2)}
-
-@app.post("/explain_prediction")
-def explain_prediction(input: AdmissionInput):
-    from shap import Explainer, maskers
-
-    data = np.array([[
-        input.gre_score, input.toefl_score, input.university_rating,
-        input.sop, input.lor, input.cgpa, input.research
+@app.post("/explain")
+def explain_prediction(profile: StudentProfile):
+    features = np.array([[
+        profile.gre_score, profile.toefl_score, profile.university_rating,
+        profile.sop, profile.lor, profile.cgpa, profile.research
     ]])
-
-    scaled_data = scaler.transform(data)
-    explainer = Explainer(model.predict, masker=maskers.Independent(data=np.zeros((1, 7))))
-    shap_values = explainer(scaled_data)
-
-    feature_names = ["GRE Score", "TOEFL Score", "University Rating", "SOP", "LOR", "CGPA", "Research"]
-    shap_value_array = shap_values.values[0]
-    base_value = shap_values.base_values[0]
-    final_prediction = model.predict(scaled_data)[0]
-
-    feature_contributions = dict(zip(feature_names, shap_value_array))
-
-    recommendations = []
-    for feature, value in feature_contributions.items():
-        if value < -0.05:
-            if feature == "GRE Score":
-                recommendations.append("Consider retaking the GRE to improve your score.")
-            elif feature == "TOEFL Score":
-                recommendations.append("Improve your TOEFL score to boost your chances.")
-            elif feature == "University Rating":
-                recommendations.append("Applying to better-rated universities could help.")
-            elif feature == "SOP":
-                recommendations.append("Enhance the clarity or relevance of your SOP.")
-            elif feature == "LOR":
-                recommendations.append("Stronger Letters of Recommendation may help.")
-            elif feature == "CGPA":
-                recommendations.append("A higher CGPA could significantly improve your profile.")
-            elif feature == "Research":
-                recommendations.append("Gaining research experience can positively influence your chances.")
-
+    
+    scaled_features = scaler.transform(features)
+    explainer = shap.Explainer(model.predict, masker=shap.maskers.Independent(data=np.zeros((1, 7))))
+    shap_values = explainer(scaled_features)
+    
+    feature_names = ["GRE", "TOEFL", "University", "SOP", "LOR", "CGPA", "Research"]
+    contributions = dict(zip(feature_names, shap_values.values[0]))
+    
+    # Generate suggestions for weak areas
+    suggestions = []
+    for feature, impact in contributions.items():
+        if impact < -0.05:
+            suggestions.append(get_suggestion(feature))
+    
     return {
-        "base_prediction": round(float(base_value * 100), 2),
-        "final_prediction": round(float(final_prediction * 100), 2),
-        "shap_values": feature_contributions,
-        "recommendations": recommendations or ["Your profile looks strong based on current data."]
+        "base_score": round(shap_values.base_values[0] * 100, 2),
+        "final_score": round(model.predict(scaled_features)[0] * 100, 2),
+        "contributions": contributions,
+        "suggestions": suggestions or ["Your profile looks competitive!"]
     }
 
-@app.get("/lookup")
-def lookup_university(name: str = Query(...)):
+def get_suggestion(feature):
+    suggestions = {
+        "GRE": "Consider retaking the GRE for a higher score",
+        "TOEFL": "Improve your TOEFL score if possible", 
+        "University": "Consider applying to higher-ranked universities",
+        "SOP": "Strengthen your statement of purpose",
+        "LOR": "Seek stronger letters of recommendation",
+        "CGPA": "A higher GPA would significantly help",
+        "Research": "Try to gain research experience"
+    }
+    return suggestions.get(feature, "Focus on strengthening this area")
+
+@app.get("/university")
+def get_university_rating(name: str = Query(...)):
     df = pd.read_excel(BASE_DIR / "../data/UpdatedWorldUniRank23.xlsx")
-
-    def safe(value):
-        if pd.isna(value):
-            return "Unavailable"
-        if isinstance(value, (np.integer, np.floating)):
-            return value.item()
-        return str(value)
-
+    
     result = df[df['University Name'].str.lower() == name.lower()]
-
-    if not result.empty:
-        row = result.iloc[0]
-        country = safe(row.get("Country"))
-
-        try:
-            rank_str = str(row["Rank"])
-            if "-" in rank_str:
-                low, high = map(int, rank_str.split("-"))
-                avg_rank = (low + high) / 2
-            else:
-                avg_rank = int(rank_str)
-
-            if avg_rank <= 100:
-                rating = 5
-            elif avg_rank <= 250:
-                rating = 4
-            elif avg_rank <= 500:
-                rating = 3
-            else:
-                rating = 2
-
-        except Exception:
-            rating = 1
-
-        return {
-            "University": safe(name),
-            "Country": country,
-            "Rating (out of 5)": int(rating),
-            "Details": {
-                "Rank": safe(row.get("Rank")),
-                "No of Students": safe(row.get("No of student")),
-                "Students per Staff": safe(row.get("No of student per staff")),
-                "International Students": safe(row.get("International Student")),
-                "Female:Male Ratio": safe(row.get("Female:Male Ratio")),
-                "Overall Score": safe(row.get("OverAll Score")),
-                "Teaching Score": safe(row.get("Teaching Score")),
-                "Research Score": safe(row.get("Research Score")),
-                "Citations Score": safe(row.get("Citations Score")),
-                "Industry Income Score": safe(row.get("Industry Income Score")),
-                "International Outlook Score": safe(row.get("International Outlook Score"))
-            }
-        }
+    
+    if result.empty:
+        return {"name": name, "rating": 1, "found": False}
+    
+    row = result.iloc[0]
+    rank_str = str(row.get("Rank", "1000"))
+    
+    # Parse rank (handle ranges like "101-150")
+    try:
+        if "-" in rank_str:
+            low, high = map(int, rank_str.split("-"))
+            rank = (low + high) // 2
+        else:
+            rank = int(rank_str)
+    except:
+        rank = 1000
+    
+    # Convert rank to rating
+    if rank <= 100:
+        rating = 5
+    elif rank <= 250:
+        rating = 4
+    elif rank <= 500:
+        rating = 3
     else:
-        return {
-            "University": name,
-            "Country": "Unavailable",
-            "Rating (out of 5)": 1,
-            "Details": {
-                "Note": "University not found in database. Assigned default lowest rating."
-            }
-        }
+        rating = 2
+    
+    return {
+        "name": name,
+        "rating": rating,
+        "rank": rank_str,
+        "country": str(row.get("Country", "Unknown")),
+        "found": True
+    }
 
-@app.post("/score_sop")
-def score_sop(data: SOPRequest):
+@app.post("/sop")
+def evaluate_sop(data: SOPText):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="Missing Gemini API key.")
-    return score_sop_with_gemini(data.sop, api_key)
+        raise HTTPException(status_code=500, detail="Gemini API key not configured")
+    
+    return score_sop(data.sop, api_key)
