@@ -1,0 +1,31 @@
+# Virtual environment
+venv/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Jupyter notebooks checkpoint
+.ipynb_checkpoints/
+
+# Streamlit secrets
+  secrets.toml
+
+# Environment/config
+.env
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Log or cache
+*.log
+.cache/
+
+# Exported reports
+*.txt
+
+# VSCode project settings
+.vscode/
