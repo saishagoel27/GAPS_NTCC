@@ -30,8 +30,8 @@ A full-stack machine learning web app to predict your chances of getting into a 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/graduate-admission.git
-cd graduate-admission
+git clone https://github.com/saishagoel27/GAPS_NTCC
+cd GAPS_NTCC
 ```
 
 ### 2. Create and Activate a Virtual Environment
