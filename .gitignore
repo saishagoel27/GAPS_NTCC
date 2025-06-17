@@ -11,7 +11,7 @@ __pycache__/
 .ipynb_checkpoints/
 
 # Streamlit secrets
-  secrets.toml
+secrets.toml/
 
 # Environment/config
 .env
