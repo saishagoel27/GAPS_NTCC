@@ -100,7 +100,7 @@ graduate-admission/
 
 ## 📄 License
 
-MIT License — free to use and modify
+Under MIT License - free to use and modify
 
 ---
 
