@@ -89,7 +89,10 @@ graduate-admission/
 ---
 
 ## 📸 Screenshots
-
+![Screenshot 2025-06-17 123242](https://github.com/user-attachments/assets/3024964f-a71a-4f7d-8470-4971575f336a)
+![Screenshot 2025-06-17 123258](https://github.com/user-attachments/assets/ed4e105f-41a1-47e8-99fb-c0762c81bbf3)
+![Screenshot 2025-06-17 123328](https://github.com/user-attachments/assets/de289557-7c65-49c0-803a-93abc6aa2515)
+![Screenshot 2025-06-17 123348](https://github.com/user-attachments/assets/0381439b-4f7a-4503-b5e0-ed07468b8530)
 
 
 
@@ -101,6 +104,6 @@ MIT License — free to use and modify
 
 ---
 
-## 🙋‍♂️ Authora
+## 🙋‍♂️ Authors
 
-Built with Anishaa and Saisha 
+Built by Anishaa and Saisha 
