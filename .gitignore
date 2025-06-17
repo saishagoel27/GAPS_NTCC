@@ -24,8 +24,5 @@ Thumbs.db
 *.log
 .cache/
 
-# Exported reports
-*.txt
-
 # VSCode project settings
 .vscode/
