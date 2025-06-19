@@ -97,6 +97,10 @@ st.markdown("""
     .stSelectbox > div > div {
         background-color: #f8f9fa;
         border-radius: 10px;
+        color: #222 !important;
+    }
+    .stSelectbox label, .stSelectbox span {
+        color: #222 !important;
     }
     
     .stNumberInput > div > div > input {
@@ -190,7 +194,6 @@ if st.session_state.page == 'main':
         uni_name = st.text_input("🔍 University Name", placeholder="e.g., Stanford University, MIT")
         
         col_lookup, col_rating = st.columns([1, 1])
-        
         with col_lookup:
             if st.button("🔍 Get University Rating", type="secondary"):
                 if uni_name:
@@ -208,12 +211,11 @@ if st.session_state.page == 'main':
                             st.error("❌ Failed to lookup university. Check if backend is running.")
                 else:
                     st.warning("Please enter university name first")
-        
         with col_rating:
             university_rating = st.selectbox(
-                "University Rating", 
-                [1,2,3,4,5], 
-                index=getattr(st.session_state, 'uni_rating', 3)-1,
+                "University Rating",
+                [1, 2, 3, 4, 5],
+                key="uni_rating",
                 help="1=Low ranked, 5=Top tier"
             )
         
@@ -222,7 +224,6 @@ if st.session_state.page == 'main':
             sop_rating = st.slider("SOP Quality", 1.0, 5.0, 3.5, 0.1, help="Statement of Purpose strength")
         with col_lor:
             lor_rating = st.slider("LOR Quality", 1.0, 5.0, 4.0, 0.1, help="Letter of Recommendation strength")
-        
         has_research = st.checkbox("🔬 Research Experience", help="Do you have research publications or experience?")
         
         st.markdown("### ✍️ Statement of Purpose")
@@ -293,23 +294,24 @@ if st.session_state.page == 'main':
                         col_base, col_sop_score = st.columns(2)
                         
                         with col_base:
-                            st.markdown(f"""
-                            <div class="metric-container">
-                                <h4>Base Score</h4>
-                                <h2>{explanation['base_score']}%</h2>
-                                <small>Before feature impacts</small>
-                            </div>
-                            """, unsafe_allow_html=True)
+                            st.markdown(
+                                f'<div style="background: #f8f9fa; color: #222; padding: 2rem 1rem; border-radius: 15px; text-align: center; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,0.04);">'
+                                f'<div style="font-size: 1.2rem; margin-bottom: 0.5rem;">Base Score</div>'
+                                f'<div style="font-size: 2.2rem;">{explanation["base_score"]}%</div>'
+                                f'<div style="font-size: 1rem; color: #666; margin-top: 0.5rem;">Model baseline output</div>'
+                                f'</div>',
+                                unsafe_allow_html=True
+                            )
                         
                         with col_sop_score:
-                            avg_sop = sop_scores.get('average', 0)
-                            st.markdown(f"""
-                            <div class="metric-container">
-                                <h4>SOP Quality</h4>
-                                <h2>{avg_sop}/5</h2>
-                                <small>AI-evaluated score</small>
-                            </div>
-                            """, unsafe_allow_html=True)
+                            st.markdown(
+                                f'<div style="background: #f8f9fa; color: #222; padding: 2rem 1rem; border-radius: 15px; text-align: center; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,0.04);">'
+                                f'<div style="font-size: 1.2rem; margin-bottom: 0.5rem;">SOP Quality</div>'
+                                f'<div style="font-size: 2.2rem;">{sop_scores["average"]}/5</div>'
+                                f'<div style="font-size: 1rem; color: #666; margin-top: 0.5rem;">AI-evaluated score</div>'
+                                f'</div>',
+                                unsafe_allow_html=True
+                            )
                         
                         # Navigation prompt
                         st.markdown("---")
@@ -329,9 +331,9 @@ if st.session_state.page == 'main':
         # Show placeholder if no prediction yet
         if not st.session_state.prediction_data:
             st.markdown("""
-            <div style="text-align: center; padding: 2rem; background: #f8f9fa; border-radius: 15px; border: 2px dashed #dee2e6;">
-                <h3>🎯 Ready for Analysis</h3>
-                <p>Fill in your details and click 'Predict' to see your admission probability and detailed insights!</p>
+            <div style="text-align: center; padding: 2rem; background: #f8f9fa; border-radius: 15px; border: 2px dashed #dee2e6; color: #222;">
+                <h3 style="color: #222;">🎯 Ready for Analysis</h3>
+                <p style="color: #222;">Fill in your details and click 'Predict' to see your admission probability and detailed insights!</p>
             </div>
             """, unsafe_allow_html=True)
 
