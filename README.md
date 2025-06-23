@@ -60,8 +60,10 @@ GEMINI_API_KEY = "your-google-gemini-api-key"
 ### 5. Run the App
 
 ```bash
-chmod +x run_all.sh
-./run_all.sh
+1. source venv/Scripts/activate
+2. export GEMINI_API_KEY="your-key-here"
+3. chmod +x run_all.sh
+4. ./run_all.sh or bash run_all.sh
 ```
 
 * FastAPI backend runs on: `http://localhost:8000`
@@ -88,7 +90,11 @@ graduate-admission/
 
 ---
 
-## 📸 Screenshots
+## 📸 Project Walkthrough
+
+https://github.com/user-attachments/assets/64d59742-48ec-478d-825d-9d05d0450668
+
+
 
 
 
