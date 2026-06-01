@@ -26,6 +26,7 @@ class StudentProfile(BaseModel):
 
 class SOPText(BaseModel):
     sop: str
+    api_key: str
 
 @app.post("/predict")
 def predict_admission(profile: StudentProfile):
@@ -38,6 +39,17 @@ def predict_admission(profile: StudentProfile):
     prob = model.predict(scaled_features)[0] * 100
     
     return {"probability": max(0, round(prob, 2))}
+
+
+@app.get("/health")
+def health_check():
+    """Basic health endpoint for readiness checks."""
+    groq_present = bool(os.getenv("GROQ_API_KEY"))
+    return {
+        "status": "ok",
+        "backend": "fastapi",
+        "groq_key_configured": groq_present
+    }
 
 @app.post("/explain")
 def explain_prediction(profile: StudentProfile):
@@ -80,7 +92,7 @@ def get_suggestion(feature):
 
 @app.get("/university")
 def get_university_rating(name: str = Query(...)):
-    df = pd.read_excel(BASE_DIR / "../data/UpdatedWorldUniRank23.xlsx")
+    df = pd.read_excel(BASE_DIR.parent / "data" / "UpdatedWorldUniRank23.xlsx")
     
     result = df[df['University Name'].str.lower() == name.lower()]
     
@@ -120,8 +132,18 @@ def get_university_rating(name: str = Query(...)):
 
 @app.post("/sop")
 def evaluate_sop(data: SOPText):
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="Gemini API key not configured")
-    
-    return score_sop(data.sop, api_key)
+    if not data.api_key or data.api_key == "":
+        raise HTTPException(status_code=400, detail="Groq API key not provided")
+
+    # Always return a consistent JSON structure to the frontend so UI doesn't crash
+    try:
+        result = score_sop(data.sop, data.api_key)
+        # Ensure keys exist
+        if not isinstance(result, dict):
+            return {"scores": {}, "average": 0, "error": "Invalid result from scorer"}
+        result.setdefault("scores", {})
+        result.setdefault("average", 0)
+        return result
+    except Exception as e:
+        # Return an error object rather than raising HTTPException to keep frontend stable
+        return {"scores": {}, "average": 0, "error": f"SOP scoring failed: {str(e)}"}
