@@ -12,6 +12,19 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+# Load Groq API Key from secrets
+try:
+    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+    # indicate key presence without printing the key itself
+    st.sidebar.success("✅ Groq API key loaded")
+except Exception as e:
+    st.error("⚠️ Groq API key not found in secrets.toml")
+    st.info("Please create a .streamlit/secrets.toml file with your GROQ_API_KEY")
+    GROQ_API_KEY = None
+
+# Backend URL (use secrets to override in deployment)
+BACKEND_URL = st.secrets.get("BACKEND_URL", "http://localhost:8000")
+
 
 # Custom CSS for better styling
 st.markdown("""
@@ -218,7 +231,7 @@ if st.session_state.page == 'main':
                 if uni_name:
                     with st.spinner("Looking up university..."):
                         try:
-                            resp = requests.get("http://localhost:8000/university", params={"name": uni_name})
+                            resp = requests.get(f"{BACKEND_URL}/university", params={"name": uni_name})
                             data = resp.json()
                             if data['found']:
                                 st.session_state.uni_rating = data['rating']
@@ -278,14 +291,31 @@ if st.session_state.page == 'main':
                     }
                     
                     try:
-                        pred_resp = requests.post("http://localhost:8000/predict", json=profile_data)
+                        pred_resp = requests.post(f"{BACKEND_URL}/predict", json=profile_data)
                         prediction = pred_resp.json()
                         
-                        exp_resp = requests.post("http://localhost:8000/explain", json=profile_data)  
+                        exp_resp = requests.post(f"{BACKEND_URL}/explain", json=profile_data)  
                         explanation = exp_resp.json()
                         
-                        sop_resp = requests.post("http://localhost:8000/sop", json={"sop": sop_text})
-                        sop_scores = sop_resp.json()
+                        # Passing API key with SOP request
+                        if GROQ_API_KEY:
+                            try:
+                                sop_resp = requests.post(f"{BACKEND_URL}/sop", json={
+                                    "sop": sop_text,
+                                    "api_key": GROQ_API_KEY
+                                }, timeout=30)
+                                sop_scores = sop_resp.json()
+                                # Handle backend-reported errors gracefully
+                                if isinstance(sop_scores, dict) and sop_scores.get('error'):
+                                    st.warning(f"⚠️ SOP analysis: {sop_scores.get('error')}")
+                                    sop_scores.setdefault('scores', {})
+                                    sop_scores.setdefault('average', 0)
+                            except Exception as e:
+                                st.warning(f"⚠️ SOP analysis failed: {str(e)}")
+                                sop_scores = {"scores": {}, "average": 0}
+                        else:
+                            st.error("⚠️ Cannot analyze SOP - Groq API key not configured")
+                            sop_scores = {"scores": {}, "average": 0}
                         
                         st.session_state.prediction_data = {
                             'prediction': prediction,
@@ -294,7 +324,6 @@ if st.session_state.page == 'main':
                             'profile_data': profile_data,
                             'sop_text': sop_text
                         }
-                        
                         prob = prediction['probability']
                         
                         if prob >= 70:
